@@ -1,18 +1,22 @@
-define(['class'], function(Class){
+define(['class', 'q'], function(Class, Q){
+  /*
+    @constructor
+    @param {object} options
+  */
   var Filter = Class.extend({
     init: function(options){
       this.options = {
         min: 0,
         max: 10,
         step: 1,
-        value: 0,
-        filterUrl: 'filtre.js'
+        value: 0
       }
       for(var key in options){
         if(options.hasOwnProperty(key)){
           this.options[key] = options[key];
         }
       }
+      this.subscribers = [];
       this.createControls();
       this.attachEvents();
     },
@@ -36,36 +40,64 @@ define(['class'], function(Class){
 
       this.displayValue = document.createElement('span');
       this.holder.appendChild(this.displayValue);
-      if(!this.options.parent){
+      if(!this.options.app.controls){
         throw new Error (
           'You have to set a parent element'
         )
       }else{
-        this.options.parent.appendChild(this.holder);
+        this.options.app.controls.appendChild(this.holder);
       }
     },
     displayCurrentValue: function(){
       if(typeof this.options.onChange === 'function'){
         this.options.onChange(this.options.value);
       }
-      this.displayValue.innerText = this.rangeInput.value;
+      this.displayValue.innerText = this.getValue();
     },
     attachEvents: function(){
       this.rangeInput.addEventListener('change', function(){
         this.options.value = this.rangeInput.value;
         this.displayCurrentValue();
+        this.change(this.getValue());
       }.bind(this));
       this.displayCurrentValue();
     },
-    getCurrentValue: function(){
-      return this.options.value;
+    getValue: function(){
+      return parseFloat(this.options.value);
     },
-    getData: function(){
-      return {
-        url: this.options.filterUrl,
-        name: this.options.name,
-        value: this.options.value
+    subscribe: function(data){
+      this.subscribers.push(data);
+    },
+    change: function(value){
+      this.subscribers.forEach(function(fn){
+        fn(value);
+      });
+    },
+    reset: function(){
+      this.rangeInput.value = 0;
+      this.options.value = this.rangeInput.value;
+      this.displayCurrentValue();
+    },
+    apply: function(imageData){
+      console.log(this, imageData)
+      var App = this.options.app;
+      var deferred = Q.defer();
+      if(this.worker){
+        this.worker.terminate();
       }
+      this.worker = new Worker(this.options.filterUrl);
+      this.worker.addEventListener('message', function(event){
+        if(event.data.status === 'complete'){
+          this.worker.terminate();
+          this.worker = null;
+          deferred.resolve(event.data.imageData);
+        }
+      }.bind(this), false);
+      this.worker.postMessage({
+        imageData: imageData,
+        value: this.getValue()
+      });
+      return deferred.promise;
     }
   });
 

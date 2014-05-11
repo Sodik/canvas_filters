@@ -2,7 +2,7 @@ onmessage = function(event){
   var imageData = event.data.imageData;
   var width = imageData.width;
   var height = imageData.height;
-  var radius = event.data.radius;
+  var radius = event.data.value;
   
   var sumR, sumG, sumB, sumA;
   var scale = (radius * 2 + 1) * (radius * 2 + 1);
@@ -57,5 +57,5 @@ onmessage = function(event){
       setPixel(x, y, sumR / scale, sumG / scale, sumB / scale, sumA / scale);
     }
   }
-  postMessage({status: 'complite', imageData: imageData});
+  postMessage({status: 'complete', imageData: imageData});
 }
