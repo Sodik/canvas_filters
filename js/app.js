@@ -64,16 +64,36 @@ define(['filter', 'q'], function(Filter, Q){
         left: (maskWidth - slideWidth) / 2
       }
     },
+    nextFilter: function(imageData){
+      if(this.filterIndex >= this.filters.length){
+        this.ctx.putImageData(imageData, 0 ,0);
+      }
+      return this.filters[this.filterIndex].apply.call(this.filters[this.filterIndex], imageData).then(function(data){
+        this.filterIndex++;
+        this.nextFilter(data);
+      }.bind(this));
+    },
     applyFilters: function(){
       if(!this.imageDrawed) return;
-      var result = Q(this.ctx.getImageData(0, 0, this.canvas.width, this.canvas.height));
+      this.filterIndex = 0;
+      this.filters.forEach(function(filter){
+        if(filter.worker){
+          filter.worker.terminate();
+        }
+      });
+      var imageData = this.ctx.getImageData(0, 0, this.canvas.width, this.canvas.height);
+      this.filters.forEach(function(filter){
+        filter.apply(imageData)
+      });
+      //this.nextFilter(imageData);
+      /*var result = Q(this.ctx.getImageData(0, 0, this.canvas.width, this.canvas.height));
       console.log(result)
       this.filters.forEach(function(filter){
         result = result.then(filter.apply);
       });
       result.done(function(){
         console.log(arguments)
-      });
+      });*/
       //this.ctx.putImageData(result, 0, 0);
 
       /*this.filters.forEach(function(filter){

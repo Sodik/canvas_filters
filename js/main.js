@@ -16,8 +16,8 @@ require(['app'], function (App) {
     name: 'Noise',
     filterUrl: 'js/filters/noise.js'
   });
-  /*App.addFilter({
+  App.addFilter({
     name: 'Blur',
     filterUrl: 'js/filters/blur.js'
-  });*/
+  });
 });
