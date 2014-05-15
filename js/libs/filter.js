@@ -40,13 +40,8 @@ define(['class', 'q'], function(Class, Q){
 
       this.displayValue = document.createElement('span');
       this.holder.appendChild(this.displayValue);
-      if(!this.options.app.controls){
-        throw new Error (
-          'You have to set a parent element'
-        )
-      }else{
-        this.options.app.controls.appendChild(this.holder);
-      }
+      
+      this.options.parent.appendChild(this.holder);
     },
     displayCurrentValue: function(){
       if(typeof this.options.onChange === 'function'){
@@ -79,8 +74,6 @@ define(['class', 'q'], function(Class, Q){
       this.displayCurrentValue();
     },
     apply: function(imageData){
-      console.log(this, imageData)
-      var App = this.options.app;
       var deferred = Q.defer();
       if(this.worker){
         this.worker.terminate();

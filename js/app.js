@@ -2,7 +2,14 @@ define(['filter', 'q'], function(Filter, Q){
   var FiltersApp = {
     init: function(){
       this.findElements();
+      this.createFakeCanvas();
       this.attachEvents();
+    },
+    createFakeCanvas: function(){
+      this.fakeCanvas = document.createElement('canvas');
+      this.fakeCanvas.width = this.canvas.width;
+      this.fakeCanvas.height = this.canvas.height;
+      this.fakeCtx = this.fakeCanvas.getContext('2d');
     },
     findElements: function(){
       this.canvas = document.getElementById('canvas');
@@ -12,16 +19,18 @@ define(['filter', 'q'], function(Filter, Q){
       this.filters = [];
       this.worker = null;
       this.imageDrawed = false;
+      this.reRendering = false;
     },
     attachEvents: function(){
       var self = this;
 
       this.fileInput.addEventListener('change', function(){
         self.canvas.width = self.canvas.width;
+        self.reRendering = false;
         if(this.files && this.files[0]){
           var fileReader = new FileReader();
           fileReader.onload = function(event){
-            self.drawImage(event.target.result, function(){ this.applyFilters() }.bind(self));
+            self.renderImage(event.target.result, function(){ self.applyFilters(true) });
             self.imageDrawed = true;
           }
           fileReader.onerror = function(){
@@ -31,19 +40,28 @@ define(['filter', 'q'], function(Filter, Q){
         }
       }, false);
     },
-    drawImage: function(data, callback){
+    renderImage: function(data, callback){
       var self = this;
       var newImage = new Image();
-      this.resetFiters();
+      if(!this.reRendering){
+        this.resetFilters();
+      }
 
       newImage.onload = function(){
-        var imageObj = self.getProportion(this);
-        self.ctx.drawImage(this, imageObj.left, imageObj.top, imageObj.width, imageObj.height);
+        var imageObj = this.getProportion(newImage);
+        this.ctx.drawImage(newImage, imageObj.left, imageObj.top, imageObj.width, imageObj.height);
+        this.originalImage = {image: newImage, obj: imageObj};
+        this.renderFakeImage();
         if(callback && typeof callback === 'function'){
           callback();
         }
-      }
+      }.bind(this)
       newImage.src = data;
+    },
+    renderFakeImage: function(){
+      this.fakeCanvas.width = this.fakeCanvas.width;
+      var imageObj = this.originalImage.obj;
+      this.fakeCtx.drawImage(this.originalImage.image, imageObj.left, imageObj.top, imageObj.width, imageObj.height);
     },
     getProportion: function(image){
       var ratio = image.width / image.height;
@@ -73,7 +91,7 @@ define(['filter', 'q'], function(Filter, Q){
         this.nextFilter(data);
       }.bind(this));
     },
-    applyFilters: function(){
+    applyFilters: function(drawed){
       if(!this.imageDrawed) return;
       this.filterIndex = 0;
       this.filters.forEach(function(filter){
@@ -81,35 +99,8 @@ define(['filter', 'q'], function(Filter, Q){
           filter.worker.terminate();
         }
       });
-      var imageData = this.ctx.getImageData(0, 0, this.canvas.width, this.canvas.height);
-      this.filters.forEach(function(filter){
-        filter.apply(imageData)
-      });
-      //this.nextFilter(imageData);
-      /*var result = Q(this.ctx.getImageData(0, 0, this.canvas.width, this.canvas.height));
-      console.log(result)
-      this.filters.forEach(function(filter){
-        result = result.then(filter.apply);
-      });
-      result.done(function(){
-        console.log(arguments)
-      });*/
-      //this.ctx.putImageData(result, 0, 0);
-
-      /*this.filters.forEach(function(filter){
-        var worker = new Worker(filter.options.filterUrl);
-        worker.addEventListener('message', function(event){
-          if(event.data.status === 'complete'){
-            
-            this.ctx.putImageData(event.data.imageData, 0, 0);
-            worker.terminate();
-          }
-        }.bind(this));
-        worker.postMessage({
-          imageData: this.ctx.getImageData(0, 0, this.canvas.width, this.canvas.height),
-          value: filter.getValue()
-        });
-      }.bind(this));*/
+      var imageData = this.fakeCtx.getImageData(0, 0, this.canvas.width, this.canvas.height);
+      this.nextFilter(imageData);
     },
     /*
       @param {object} have to contain {string} filter name,
@@ -125,13 +116,13 @@ define(['filter', 'q'], function(Filter, Q){
       });
     */
     addFilter: function(options){
-      var filter = new Filter(this.extend(options, {app: this}));
+      var filter = new Filter(this.extend(options, {parent: this.controls}));
       filter.subscribe(function(){
         this.applyFilters();
       }.bind(this));
       this.filters.push(filter);
     },
-    resetFiters: function(){
+    resetFilters: function(){
       this.filters.forEach(function(filter){
         filter.reset();
       });
